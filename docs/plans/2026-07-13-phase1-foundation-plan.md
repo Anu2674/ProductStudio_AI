@@ -1722,7 +1722,7 @@ npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
 Modify `frontend/vite.config.ts`:
 
 ```typescript
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -1738,7 +1738,7 @@ export default defineConfig({
 Create `frontend/src/setupTests.ts`:
 
 ```typescript
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 ```
 
 Modify `frontend/package.json` `scripts` section to add:
@@ -1774,7 +1774,7 @@ export default client;
 Create `frontend/src/store/AuthContext.tsx`:
 
 ```tsx
-import { createContext, ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 
 interface AuthContextValue {
   token: string | null;
@@ -1892,7 +1892,7 @@ Expected: PASS (2 passed).
 Create `frontend/src/pages/Login.tsx`:
 
 ```tsx
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import client from "../api/client";
@@ -1940,7 +1940,7 @@ export function Login() {
 Create `frontend/src/pages/Register.tsx`:
 
 ```tsx
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import client from "../api/client";
