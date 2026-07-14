@@ -1588,13 +1588,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5434:5432"
 
   redis:
     image: redis:7
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6381:6379"
 
   backend:
     build: ./backend
@@ -1607,12 +1607,14 @@ services:
     volumes:
       - uploads_data:/data/uploads
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
 volumes:
   postgres_data:
   uploads_data:
 ```
+
+Host ports are remapped off the defaults (`5434`, `6381`, `8001`) because this machine already runs other unrelated projects' containers bound to `5432`/`6379`/`8000`. Container-to-container communication (backend → `db`, backend → `redis`) uses the internal Compose network and is unaffected — only host-side access changes.
 
 - [ ] **Step 2: Create the root env example**
 
@@ -1654,8 +1656,8 @@ Expected: output shows migrations `0001`, `0002`, `0003` applied in order, no er
 - [ ] **Step 5: Verify the backend is reachable and functional end-to-end**
 
 ```bash
-curl http://localhost:8000/health
-curl -X POST http://localhost:8000/api/v1/auth/register -H "Content-Type: application/json" -d "{\"email\":\"smoke@example.com\",\"password\":\"StrongPass123\"}"
+curl http://localhost:8001/health
+curl -X POST http://localhost:8001/api/v1/auth/register -H "Content-Type: application/json" -d "{\"email\":\"smoke@example.com\",\"password\":\"StrongPass123\"}"
 ```
 
 Expected: `{"status":"ok"}` from the first call; a `201` with the created user JSON from the second.
@@ -1753,7 +1755,7 @@ Create `frontend/src/api/client.ts`:
 import axios from "axios";
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1",
 });
 
 client.interceptors.request.use((config) => {
@@ -2165,8 +2167,10 @@ Modify `docker-compose.yml` — add this service alongside `db`, `redis`, `backe
     depends_on:
       - backend
     ports:
-      - "5173:5173"
+      - "5174:5173"
 ```
+
+(Host port `5174` — port `5173` is already bound by an unrelated project's container on this machine; see the note in Task 6.)
 
 - [ ] **Step 13: Full-stack verification**
 
@@ -2176,7 +2180,7 @@ docker compose up --build -d
 
 Expected: `docker compose ps` shows `db`, `redis`, `backend`, `frontend` all `Up`.
 
-Open `http://localhost:5173` in a browser, register a new account, log in, create a project, and upload a `.png`/`.jpg` file — confirm it appears in the project's image list.
+Open `http://localhost:5174` in a browser, register a new account, log in, create a project, and upload a `.png`/`.jpg` file — confirm it appears in the project's image list.
 
 - [ ] **Step 14: Commit**
 
