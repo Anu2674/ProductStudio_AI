@@ -48,7 +48,7 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 sqlalchemy==2.0.35
 alembic==1.13.3
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
