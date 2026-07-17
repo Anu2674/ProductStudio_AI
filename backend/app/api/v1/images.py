@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -35,3 +36,13 @@ def get_image(image_id: int, db: Session = Depends(get_db), current_user=Depends
 @router.delete("/images/{image_id}", status_code=204)
 def delete_image(image_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     ImageService(db).delete(current_user.id, image_id)
+
+
+@router.get("/images/{image_id}/file")
+def download_image_file(
+    image_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    image = ImageService(db).get_owned(current_user.id, image_id)
+    return FileResponse(
+        image.storage_path, media_type=image.content_type, filename=image.original_filename
+    )

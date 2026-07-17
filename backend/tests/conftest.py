@@ -41,6 +41,13 @@ def _isolate_uploads(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
 
 
+@pytest.fixture(autouse=True)
+def _stub_generation_queue(monkeypatch):
+    from app.services import generation_service
+
+    monkeypatch.setattr(generation_service.generation_queue, "enqueue", lambda *args, **kwargs: None)
+
+
 @pytest.fixture()
 def auth_headers(client):
     def _make(email: str = "owner@example.com", password: str = "StrongPass123"):
