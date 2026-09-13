@@ -49,6 +49,7 @@ export function ProjectDetail() {
   const [marketingByImage, setMarketingByImage] = useState<Record<number, MarketingContent>>({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [promptByImage, setPromptByImage] = useState<Record<number, string>>({});
 
   function refreshImages() {
     return client.get<ImageAsset[]>(`/projects/${id}/images`).then((response) => {
@@ -95,7 +96,9 @@ export function ProjectDetail() {
   }
 
   async function handleGenerate(imageId: number) {
+    const prompt = promptByImage[imageId] || "Professional product photo with studio lighting";
     await client.post(`/projects/${id}/images/${imageId}/generate`, {
+      prompt,
       scene_type: "studio_white",
       lighting: "soft",
       camera_angle: "front",
@@ -150,6 +153,13 @@ export function ProjectDetail() {
                 <span className="image-card-filename" title={image.original_filename}>
                   {image.original_filename}
                 </span>
+                <input
+                  type="text"
+                  placeholder="e.g., Times Square background, modern studio lighting, minimalist setting..."
+                  value={promptByImage[image.id] || ""}
+                  onChange={(e) => setPromptByImage((prev) => ({ ...prev, [image.id]: e.target.value }))}
+                  style={{ width: "100%", marginBottom: 8, padding: "6px 8px", fontSize: 12 }}
+                />
                 <div className="image-card-actions">
                   <button className="secondary sm" onClick={() => handleSegment(image.id)}>
                     Remove background

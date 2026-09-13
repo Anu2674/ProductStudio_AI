@@ -1,0 +1,14 @@
+[
+  { "image": "sneaker_white.jpg",   "prompt": "a white sneaker on a marble bathroom shelf, soft daylight, photorealistic product photo", "negative_prompt": "clutter, text, watermark", "seed": 0 },
+  { "image": "bottle_serum.jpg",    "prompt": "a skincare serum bottle on wet stone with green leaves, studio lighting, high end cosmetics photography", "seed": 0 },
+  { "image": "mug_ceramic.jpg",     "prompt": "a ceramic mug on a rustic wooden table next to a window, warm morning light", "seed": 0 },
+  { "image": "headphones.jpg",      "prompt": "over ear headphones on a concrete pedestal, neon studio background, dramatic rim light", "seed": 0 },
+  { "image": "watch_leather.jpg",   "prompt": "a leather strap watch on dark slate with water droplets, moody lighting", "seed": 0 },
+  { "image": "backpack.jpg",        "prompt": "a backpack on a mossy rock in a forest, golden hour, outdoor lifestyle photo", "seed": 0 },
+  { "image": "perfume.jpg",         "prompt": "a perfume bottle on a silk cloth with rose petals, luxury advertising photography", "seed": 0 },
+  { "image": "candle_jar.jpg",      "prompt": "a scented candle jar on a bathroom ledge with eucalyptus, spa atmosphere, soft light", "seed": 0 },
+  { "image": "sunglasses.jpg",      "prompt": "sunglasses on warm beach sand next to a seashell, bright midday sun", "seed": 0 },
+  { "image": "coffee_bag.jpg",      "prompt": "a coffee bean bag on a cafe counter, espresso machine blurred in background, warm light", "seed": 0 },
+  { "image": "lipstick.jpg",        "prompt": "a lipstick tube on a mirrored surface with soft pink gradient background, beauty product shot", "seed": 0 },
+  { "image": "plant_pot.jpg",       "prompt": "a small plant pot on a windowsill with sheer curtains, bright airy interior", "seed": 0 }
+]

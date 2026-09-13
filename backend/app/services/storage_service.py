@@ -15,7 +15,7 @@ class StorageService:
         stored_name = f"{uuid.uuid4().hex}{extension}"
         destination = project_dir / stored_name
         destination.write_bytes(content)
-        return str(destination)
+        return destination.as_posix()
 
     def delete(self, storage_path: str) -> None:
         path = Path(storage_path)

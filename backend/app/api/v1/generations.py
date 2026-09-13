@@ -37,7 +37,7 @@ def create_photo_generation(
     current_user=Depends(get_current_user),
 ):
     return GenerationService(db).create_photo_generation(
-        current_user.id, project_id, image_id, payload.scene_type, payload.lighting, payload.camera_angle
+        current_user.id, project_id, image_id, payload.scene_type, payload.lighting, payload.camera_angle, payload.prompt
     )
 
 

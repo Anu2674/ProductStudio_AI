@@ -8,6 +8,7 @@ class SegmentationRequest(BaseModel):
 
 
 class GenerationRequest(BaseModel):
+    prompt: str | None = None
     scene_type: str = "studio_white"
     lighting: str = "soft"
     camera_angle: str = "front"

@@ -1,0 +1,11 @@
+# Extra deps for the Phase 1 / Phase 3 evaluation harness (eval/).
+# Not installed into the service image - run these where you run the models
+# (Colab, or a local GPU box). Install on top of requirements.txt.
+sam2 @ git+https://github.com/facebookresearch/sam2.git
+scipy==1.14.1
+scikit-image==0.24.0
+torchmetrics==1.4.3
+lpips==0.1.4
+open-clip-torch==2.26.1
+controlnet-aux==0.0.9
+matplotlib==3.9.2

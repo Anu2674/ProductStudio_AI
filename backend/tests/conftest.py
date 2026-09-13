@@ -43,9 +43,12 @@ def _isolate_uploads(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _stub_generation_queue(monkeypatch):
+    # generation_service used to enqueue a background job (`generation_queue.enqueue`);
+    # it now calls `process_generation` directly and synchronously. Stub that call
+    # instead so tests don't hit the real AI service / DB session concurrently.
     from app.services import generation_service
 
-    monkeypatch.setattr(generation_service.generation_queue, "enqueue", lambda *args, **kwargs: None)
+    monkeypatch.setattr(generation_service, "process_generation", lambda *args, **kwargs: None)
 
 
 @pytest.fixture()
