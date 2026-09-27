@@ -1,17 +1,20 @@
 # ProductStudio AI
 
-An AI-powered product photography platform for e-commerce sellers: upload a raw product photo and get an automatic background removal, an AI-regenerated studio or lifestyle scene, automated image quality scoring, and generated marketing copy — all through a full-stack, multi-service application.
+**Generative Product Photography Platform** — segments product photos and regenerates studio backgrounds via diffusion models, hitting **0.74 median IoU**, **0.98 product SSIM**, and **29.1 CLIP score** on real product photos.
 
-Built to demonstrate production backend engineering and applied computer vision together: a typed FastAPI service layer, an async job queue, and a dedicated GPU inference microservice running real segmentation and diffusion models, not a mockup.
+![Before / after: SAM2 segmentation + SDXL inpainting + ControlNet](docs/assets/hero-before-after.png)
 
-## What it does
+## Results
 
-1. Upload one or more product photos into a project.
-2. Segment the product foreground with **SAM2** (Meta's Segment Anything Model 2) to get a clean, transparent cutout.
-3. Regenerate the background from a text prompt with **SDXL inpainting + ControlNet**: the SAM2 mask is used as the inpaint mask so the product region is never repainted, Canny-edge ControlNet conditioning keeps the diffusion from hallucinating structure across the product silhouette, and the product pixels are composited back from the original so they stay pixel-faithful.
-4. Every generated photo automatically runs through an **OpenCV enhancement pipeline** (white balance, CLAHE lighting/contrast correction, sharpening) and is scored across 7 quality dimensions (sharpness, lighting, contrast, resolution, background cleanliness, product visibility, composition) before it's shown as done.
-5. Generate marketing copy (title, description, feature bullets, social caption, SEO keywords) from the product image and metadata.
-6. Track generation history, quality trends, and storage usage on a per-project analytics dashboard, and bulk-download finished assets as a zip.
+Measured on a Tesla T4 GPU against 17 real product photos with hand-labelled segmentation ground truth and real text prompts.
+
+| Metric | Result | What it measures |
+|---|---|---|
+| Segmentation IoU (median) | **0.74** | SAM2 mask accuracy vs. hand-labelled ground truth, 17 real product photos |
+| Product SSIM | **0.98** | product preserved unchanged while the background regenerates |
+| CLIP score | **29.1** | text-prompt alignment of the generated background |
+| Product LPIPS | **0.04** | perceptual distortion on the product region (near zero) |
+| Generation latency | **24.5 s/image** | SDXL inpaint + ControlNet, Tesla T4, warm |
 
 ## Architecture
 
@@ -42,49 +45,44 @@ Built to demonstrate production backend engineering and applied computer vision 
                                 └────────────────────────┘
 ```
 
-**Why this shape:**
-- The **AI inference service is a separate deployable** from the backend so the GPU-hungry SAM2/SDXL code can be scaled and deployed independently of the API — the backend talks to it over plain HTTP, never imports it directly.
-- **Redis-backed async processing** decouples the slow part (image generation, seconds-to-minutes) from the request/response cycle.
-- **PostgreSQL** holds everything relational and durable: users, projects, images, generations, marketing content, and their ownership relationships.
-- **Local disk storage is abstracted behind `StorageService`** so it can be swapped for S3/MinIO later without touching any calling code.
+The AI inference service is a separate deployable from the backend, talked to over plain HTTP — it can be scaled or moved to any GPU host without touching API code.
 
-## Why each piece of the stack is here
+## Key Features
 
-| Technology | Why |
-|---|---|
-| **FastAPI** | Async-native, typed, auto-generates OpenAPI docs; a natural fit for a service that also talks to a GPU inference backend over HTTP. |
-| **React (Vite + TS)** | Standard SPA choice for the upload/dashboard/analytics UI. |
-| **PostgreSQL** | Real relational data — users own projects, projects own images and generations, everything needs joins and referential integrity. |
-| **Redis** | Backs the async job queue for slow generation work, keeping the API responsive. |
-| **SAM2** | A real, current segmentation model (`segment-anything-2`) for automatic product foreground extraction — not hand-rolled thresholding. |
-| **SDXL inpainting + ControlNet** | An open, controllable diffusion stack. Inpainting confines regeneration to the background via the SAM2 mask; Canny-edge ControlNet conditioning keeps the product silhouette intact. |
-| **OpenCV** | Classical CV for the enhancement pipeline and the 7-metric quality scorer, alongside the generative pipeline. |
-| **Docker Compose** | Standard local/single-host deployment story. |
+1. Upload one or more product photos into a project.
+2. Segment the product foreground with **SAM2** (Meta's Segment Anything Model 2) to get a clean, transparent cutout.
+3. Regenerate the background from a text prompt with **SDXL inpainting + ControlNet**: the SAM2 mask is the inpaint mask so the product region is never repainted, Canny-edge ControlNet conditioning keeps the diffusion from hallucinating structure across the product silhouette, and the product pixels are composited back from the original so they stay pixel-faithful.
+4. Every generated photo automatically runs through an **OpenCV enhancement pipeline** (white balance, CLAHE lighting/contrast correction, sharpening) and is scored across 7 quality dimensions (sharpness, lighting, contrast, resolution, background cleanliness, product visibility, composition).
+5. Generate marketing copy (title, description, feature bullets, social caption, SEO keywords) from the product image and metadata.
+6. Track generation history, quality trends, and storage usage on a per-project analytics dashboard, and bulk-download finished assets as a zip.
 
-## Project layout
+![App screenshot: upload, generate, quality score](docs/assets/app-screenshot.png)
 
-```
-ProductStudio AI/
-├── backend/          FastAPI app (auth, projects, images, generations, marketing content, analytics)
-│   ├── app/
-│   │   ├── api/v1/        route handlers
-│   │   ├── core/           config, security, logging, exceptions, deps
-│   │   ├── models/         SQLAlchemy models
-│   │   ├── schemas/        Pydantic request/response schemas
-│   │   ├── repositories/   DB access layer
-│   │   ├── services/       business logic (incl. OpenCV enhancement/quality assessment)
-│   │   └── jobs/           background job(s)
-│   ├── alembic/            versioned migrations
-│   └── tests/              pytest suite (43 tests)
-├── ai-service/       Separate FastAPI microservice: SAM2 + SDXL-inpaint/ControlNet pipelines
-│   └── app/pipelines/     sam2_pipeline.py, sdxl_inpaint_pipeline.py
-├── notebooks/        Colab notebook to run the real pipeline on a free GPU
-├── frontend/         React (Vite + TS): auth, dashboard, project detail, analytics
-├── docker-compose.yml
-└── ROADMAP.md
-```
+## Design Decisions & Trade-offs
 
-## Running it locally
+- **SAM2 point-prompting over automatic mask generation.** An unattended upload has no user click, so a centre-weighted point prompt (plus corner background points) stands in for one. It's fast and accurate for the common case — a roughly centred product — but it's a real, known limitation on off-center or portrait-style compositions; see Challenges.
+- **Inpainting, not text-to-image, for background generation.** An earlier text-to-image + ControlNet approach regenerated the whole frame and could not guarantee the product stayed untouched. Switching to SDXL *inpainting* with the SAM2 mask as the inpaint mask, plus a final feathered pixel-composite from the original, makes product preservation a property of the pipeline rather than something the model has to get right.
+- **A separate AI microservice over a monolith.** SAM2/SDXL need a GPU and heavy Python ML dependencies; the backend doesn't. Splitting them means the backend can run (and its 43 tests can run) with zero GPU, and the inference service can be scaled or swapped independently.
+- **A `mock`/`real` pipeline mode switch.** Local development and CI need to boot and test the full request path without a GPU. A placeholder pipeline behind the same interface as the real one keeps the API contract identical in both modes.
+- **Evaluation on Colab, not the dev laptop.** SDXL needs ~10-12GB VRAM; the local GPU has 4GB. Rather than skip evaluation or estimate numbers, every metric below was measured on a free Colab T4 GPU — see Benchmarks.
+
+## Challenges
+
+**Hardest bug: a memory optimization that made things worse, silently.** To fit SDXL on a free-tier GPU, the pipeline first used `enable_model_cpu_offload()`, which keeps most model weights in system RAM and streams them to the GPU per layer. Generation began dying with no exception, no traceback, and no log line — it simply vanished mid-request. Root cause, found by watching `nvidia-smi` alongside system RAM during a run: the free tier has *more* GPU VRAM than system RAM (16GB vs. ~12GB), so an optimization meant to relieve VRAM pressure was instead exhausting the smaller of the two resources, and the OS was hard-killing the process before it could raise or log anything. Fix: load the pipeline straight onto the GPU (`pipe.to("cuda")`) instead of offloading, since the T4's VRAM comfortably fits SDXL + ControlNet in fp16 — removing the bottleneck instead of trading it for a worse one.
+
+**Runner-up:** hand-corrected ground-truth mask PNGs occasionally came back rotated 90° relative to their source photo (an image editor silently applying EXIF orientation the source photo didn't carry), which crashed the IoU/boundary-F1 scorer on a raw shape mismatch. Fixed by detecting the transposed-shape case and rotating (not resizing/stretching) to realign, with a warning — a resize would have silently produced a wrong score instead of failing loudly.
+
+## Tech Stack
+
+**AI / ML:** Meta SAM2 (Segment Anything Model 2), Stable Diffusion XL inpainting, ControlNet (Canny-edge conditioning), PyTorch, HuggingFace `diffusers`, HuggingFace `transformers`, CLIP (image-text alignment scoring), LPIPS (perceptual similarity), SSIM, OpenCV
+
+**Backend:** Python, FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL, Redis, JWT auth, REST API design, microservice architecture
+
+**Frontend:** React, TypeScript, Vite
+
+**Infra / Tooling:** Docker, Docker Compose, pytest, Vitest, GPU inference (CUDA), Google Colab (cloud GPU), Git
+
+## Getting Started
 
 ```bash
 cp .env.example .env
@@ -101,25 +99,20 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deployment guide.
 - **AI service:** `cd ai-service && pytest -v` — 15 tests covering the segmentation and generation pipelines.
 - **Frontend:** `cd frontend && npm run test` — Vitest + React Testing Library, covering auth-gated routing.
 
-## AI pipeline
+**58/58 tests passing.**
 
-The inference service supports two modes via `PIPELINE_MODE`:
+## Benchmarks / Evaluation methodology
 
-- **`mock`** — a lightweight image-processing fallback used for local development and CI without a GPU.
-- **`real`** — the full SAM2 segmentation + SDXL inpainting / ControlNet generation pipeline. Needs a CUDA GPU with ~10–12 GB VRAM (a Colab T4 works; `LOW_VRAM=true` trades speed for VRAM on smaller GPUs).
+All numbers above come from one run against 17 real product photos (a plant pot and a headphones shot were excluded from the segmentation metric specifically because their ground truth itself was unreliable — see Challenges), on a Tesla T4 GPU (Google Colab, free tier):
 
-## Evaluation results
+- **Segmentation IoU** — SAM2 (`sam2.1_hiera_large`) generates a mask per image from a centre-weighted point prompt; compared pixel-for-pixel against a hand-labelled ground-truth mask (bootstrapped with GrabCut, then manually corrected) via intersection-over-union.
+- **CLIP score** — `openai/clip-vit-base-patch32` (via HuggingFace `transformers`) embeds the generated image and its text prompt; score is `100 × cosine similarity`.
+- **Product SSIM / LPIPS** — computed only over the product region (per the SAM2 mask), comparing the original crop against the same region in the generated output. SSIM is a from-scratch `scipy`-based windowed implementation; LPIPS uses an AlexNet backbone.
+- **Latency** — wall-clock seconds for SAM2 segmentation + SDXL inpainting (25 steps, 1024px, Canny ControlNet) per image, warm (first-request GPU/model warm-up excluded).
 
-Measured on a Tesla T4 GPU against 19 real product photos with hand-labelled segmentation ground truth and real text prompts.
+## Future Work
 
-| Metric | Result | What it measures |
-|---|---|---|
-| Segmentation IoU (median) | **0.74** | SAM2 mask accuracy vs. hand-labelled ground truth |
-| CLIP score | **29.1** | text-prompt alignment of the generated background |
-| Product SSIM | **0.98** | product preserved unchanged while the background regenerates |
-| Product LPIPS | **0.04** | perceptual distortion on the product region (near zero) |
-| Generation latency | **24.5 s/image** | SDXL inpaint + ControlNet, Tesla T4, warm |
-
-## Status
-
-Full-stack platform (auth, projects, images, async job processing, Postgres, Docker, OpenCV enhancement/quality scoring, frontend) is complete and working. The SAM2 + SDXL-inpaint + ControlNet pipeline is implemented, wired in behind `PIPELINE_MODE=real`, and evaluated end to end on a real GPU run — see Evaluation results above.
+- Full request-to-response latency (upload → queue → GPU inference → download) has not been benchmarked end to end — it requires a continuously-hosted GPU box rather than an on-demand Colab session. The SDXL generation latency itself (24.5s/image) is measured and reported above.
+- Expand the hand-labelled evaluation set beyond 17 images for tighter confidence intervals on the IoU/CLIP/SSIM numbers.
+- Add a mask-confidence fallback (e.g. a secondary, lower-frame-weighted point prompt) for the known SAM2 point-prompting weak spot on off-center or portrait-style compositions.
+- Depth-conditioned ControlNet as an alternative to Canny for scenes where edge conditioning over-constrains the generated background.
